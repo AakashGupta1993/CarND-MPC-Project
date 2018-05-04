@@ -91,6 +91,9 @@ int main() {
           double py = j[1]["y"];
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
+          double steer_value  = j[1]["steering_angle"];
+          double throttle_value = j[1]["throttle"];
+          const double Lf = 2.67;
 		  
 		  
 		  
@@ -130,35 +133,31 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-		  
+          // TODO Latency
+		  double Latency = 0.1;
+		  px = v * Latency;
+		  cte = cte + v * sin(epsi) * Latency;
+		  psi = -1 * (v * steer_value * Latency) / Lf;
+		  epsi = epsi - ((v * steer_value * Latency) / Lf);
+		  v = v + throttle_value * Latency;
 
 
 		  Eigen::VectorXd state(6);
-		  state << px, py, psi, v, cte, epsi;
+		  state << px, 0, psi, v, cte, epsi;
 		  		  
-		  MPC mpc;
+		  
 		  // Solve returns vector<double>
 		  auto vars = mpc.Solve(state, coeffs);
 		  
-		  state << vars[0], vars[1], vars[2], vars[3], vars[4], vars[5];
-		  std::cout << "x = " << vars[0] << std::endl;
-		  std::cout << "y = " << vars[1] << std::endl;
-		  std::cout << "psi = " << vars[2] << std::endl;
-		  std::cout << "v = " << vars[3] << std::endl;
-		  std::cout << "cte = " << vars[4] << std::endl;
-		  std::cout << "epsi = " << vars[5] << std::endl;
-		  std::cout << "delta = " << vars[6] << std::endl;
-		  std::cout << "a = " << vars[7] << std::endl;
-		  std::cout << std::endl;
-		  
-          double steer_value  = j[1]["steering_angle"];
-          double throttle_value = j[1]["throttle"];
+
+		  steer_value = vars[0];
+		  throttle_value = vars[1];
 
 		  
           json msgJson;
           // NOTE: Remember to divide by deg2rad(25) before you send the steering value back.
           // Otherwise the values will be in between [-deg2rad(25), deg2rad(25] instead of [-1, 1].
-          msgJson["steering_angle"] = steer_value/(deg2rad(25));
+          msgJson["steering_angle"] = steer_value/((deg2rad(25) * Lf));
           msgJson["throttle"] = throttle_value;
 
           //Display the MPC predicted trajectory 
@@ -186,9 +185,10 @@ int main() {
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
-		for (double i = 0; i < 15; i ++){
-            next_x_vals.push_back(i);
-            next_y_vals.push_back(polyeval(coeffs, i));
+          double poly_inc = 2.5;
+		for (double i = 1; i < 15; i ++){
+            next_x_vals.push_back(poly_inc*i);
+            next_y_vals.push_back(polyeval(coeffs, poly_inc*i));
           }
 
           msgJson["next_x"] = next_x_vals;
